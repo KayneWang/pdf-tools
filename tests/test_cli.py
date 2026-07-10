@@ -109,3 +109,10 @@ def test_menu_fails_on_missing_pdf_path(tmp_path):
 
     assert result.returncode != 0
     assert "输入文件不存在" in result.stderr
+
+
+def test_menu_fails_on_empty_pdf_path(tmp_path):
+    result = run_cli([], cwd=tmp_path, input_text="1\n\n")
+
+    assert result.returncode != 0
+    assert "未输入 PDF 路径" in result.stderr

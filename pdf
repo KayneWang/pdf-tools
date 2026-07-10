@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """pdf-tools 统一 CLI 入口。"""
 import argparse
 import os
@@ -41,21 +42,25 @@ def run_menu():
     for i, (name, _) in enumerate(FEATURES, start=1):
         print(f"  {i}. {name}")
 
-    choice = input("请选择功能 [1]: ").strip() or "1"
-    if not choice.isdigit() or not (1 <= int(choice) <= len(FEATURES)):
-        print(f"错误：无效的功能编号: {choice}", file=sys.stderr)
-        sys.exit(1)
+    try:
+        choice = input("请选择功能 [1]: ").strip() or "1"
+        if not choice.isdigit() or not (1 <= int(choice) <= len(FEATURES)):
+            print(f"错误：无效的功能编号: {choice}", file=sys.stderr)
+            sys.exit(1)
 
-    pdf_path = input("请输入 PDF 路径: ").strip()
-    if not pdf_path:
-        print("错误：未输入 PDF 路径", file=sys.stderr)
-        sys.exit(1)
-    if not os.path.isfile(pdf_path):
-        print(f"错误：输入文件不存在: {pdf_path}", file=sys.stderr)
-        sys.exit(1)
+        pdf_path = input("请输入 PDF 路径: ").strip()
+        if not pdf_path:
+            print("错误：未输入 PDF 路径", file=sys.stderr)
+            sys.exit(1)
+        if not os.path.isfile(pdf_path):
+            print(f"错误：输入文件不存在: {pdf_path}", file=sys.stderr)
+            sys.exit(1)
 
-    default_dir = default_output_dir(pdf_path)
-    output_dir = input(f"输出目录（回车使用默认 {default_dir}/）: ").strip()
+        default_dir = default_output_dir(pdf_path)
+        output_dir = input(f"输出目录（回车使用默认 {default_dir}/）: ").strip()
+    except EOFError:
+        print("错误：输入中断", file=sys.stderr)
+        sys.exit(1)
 
     _, feature_func = FEATURES[int(choice) - 1]
     feature_func(pdf_path, output_dir or None)
