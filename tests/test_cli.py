@@ -69,3 +69,43 @@ def test_cli_fails_on_invalid_pdf(tmp_path):
 
     assert result.returncode != 0
     assert "错误" in result.stderr
+
+
+def test_menu_extracts_images_with_defaults(tmp_path):
+    pdf_path = tmp_path / "sample.pdf"
+    make_pdf(pdf_path, images_per_page=[2])
+
+    result = run_cli([], cwd=tmp_path, input_text="1\nsample.pdf\n\n")
+
+    assert result.returncode == 0
+    assert "支持的功能" in result.stdout
+    assert "提取到 2 张图片" in result.stdout
+    output_dir = tmp_path / "sample_images"
+    assert output_dir.is_dir()
+    assert len(list(output_dir.iterdir())) == 2
+
+
+def test_menu_empty_choice_defaults_to_first_feature(tmp_path):
+    pdf_path = tmp_path / "sample.pdf"
+    make_pdf(pdf_path, images_per_page=[1])
+
+    result = run_cli([], cwd=tmp_path, input_text="\nsample.pdf\nmyout\n")
+
+    assert result.returncode == 0
+    output_dir = tmp_path / "myout"
+    assert output_dir.is_dir()
+    assert len(list(output_dir.iterdir())) == 1
+
+
+def test_menu_rejects_invalid_feature_number(tmp_path):
+    result = run_cli([], cwd=tmp_path, input_text="9\n")
+
+    assert result.returncode != 0
+    assert "无效的功能编号" in result.stderr
+
+
+def test_menu_fails_on_missing_pdf_path(tmp_path):
+    result = run_cli([], cwd=tmp_path, input_text="1\ndoes_not_exist.pdf\n")
+
+    assert result.returncode != 0
+    assert "输入文件不存在" in result.stderr
