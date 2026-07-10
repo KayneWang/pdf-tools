@@ -1,0 +1,47 @@
+"""pdf-tools 统一 CLI 入口。"""
+import argparse
+import os
+import sys
+
+from extractor import extract_images
+
+
+def default_output_dir(pdf_path):
+    base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+    return f"{base_name}_images"
+
+
+def run_extract(pdf_path, output_dir=None):
+    if not os.path.isfile(pdf_path):
+        print(f"错误：输入文件不存在: {pdf_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if not output_dir:
+        output_dir = default_output_dir(pdf_path)
+
+    try:
+        saved_paths = extract_images(pdf_path, output_dir)
+    except Exception as e:
+        print(f"错误：无法处理PDF文件: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not saved_paths:
+        print("未找到图片")
+    else:
+        print(f"提取到 {len(saved_paths)} 张图片，已保存到: {output_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Extract embedded images from a PDF file."
+    )
+    parser.add_argument("input", help="Path to the input PDF file")
+    parser.add_argument(
+        "-o", "--output", help="Output directory for extracted images"
+    )
+    args = parser.parse_args()
+    run_extract(args.input, args.output)
+
+
+if __name__ == "__main__":
+    main()

@@ -5,7 +5,7 @@
 从 PDF 文件中提取内嵌图片。
 
 ```bash
-python extract_images.py input.pdf -o output_dir/
+python pdf input.pdf -o output_dir/
 ```
 
 - `input.pdf`：待提取图片的 PDF 文件

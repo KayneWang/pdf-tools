@@ -5,16 +5,17 @@ import sys
 from pdf_fixtures import make_empty_pdf, make_pdf
 
 CLI_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "extract_images.py"
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pdf"
 )
 
 
-def run_cli(args, cwd):
+def run_cli(args, cwd, input_text=None):
     return subprocess.run(
         [sys.executable, CLI_PATH] + args,
         cwd=cwd,
         capture_output=True,
         text=True,
+        input=input_text,
     )
 
 
