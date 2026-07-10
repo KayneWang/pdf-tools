@@ -116,3 +116,13 @@ def test_menu_fails_on_empty_pdf_path(tmp_path):
 
     assert result.returncode != 0
     assert "未输入 PDF 路径" in result.stderr
+
+
+def test_help_describes_both_modes_in_chinese(tmp_path):
+    result = run_cli(["--help"], cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert "提取内嵌图片" in result.stdout
+    assert "交互式菜单" in result.stdout
+    assert "待提取图片的 PDF 文件路径" in result.stdout
+    assert "图片输出目录" in result.stdout

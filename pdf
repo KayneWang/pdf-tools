@@ -69,11 +69,20 @@ def run_menu():
 def main():
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(
-            description="Extract embedded images from a PDF file."
+            prog="pdf",
+            description=(
+                "pdf-tools —— PDF 工具集。从 PDF 文件中提取内嵌图片。\n"
+                "不带任何参数运行 `python pdf` 可进入交互式菜单。"
+            ),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            add_help=False,
         )
-        parser.add_argument("input", help="Path to the input PDF file")
         parser.add_argument(
-            "-o", "--output", help="Output directory for extracted images"
+            "-h", "--help", action="help", help="显示本帮助信息并退出"
+        )
+        parser.add_argument("input", help="待提取图片的 PDF 文件路径")
+        parser.add_argument(
+            "-o", "--output", help="图片输出目录（默认 <pdf文件名>_images/）"
         )
         args = parser.parse_args()
         run_extract(args.input, args.output)
@@ -82,4 +91,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n已取消", file=sys.stderr)
+        sys.exit(130)
