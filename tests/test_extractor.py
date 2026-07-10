@@ -1,10 +1,8 @@
 import os
 import re
 
-import fitz
-
 from extractor import extract_images
-from pdf_fixtures import make_pdf
+from pdf_fixtures import make_empty_pdf, make_pdf
 
 
 def test_extract_images_from_multi_page_pdf(tmp_path):
@@ -24,10 +22,7 @@ def test_extract_images_from_multi_page_pdf(tmp_path):
 
 def test_extract_images_from_pdf_without_images(tmp_path):
     pdf_path = tmp_path / "empty.pdf"
-    doc = fitz.open()
-    doc.new_page()
-    doc.save(str(pdf_path))
-    doc.close()
+    make_empty_pdf(pdf_path)
     output_dir = tmp_path / "out"
 
     saved = extract_images(str(pdf_path), str(output_dir))

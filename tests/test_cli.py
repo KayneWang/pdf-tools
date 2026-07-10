@@ -2,9 +2,7 @@ import os
 import subprocess
 import sys
 
-import fitz
-
-from pdf_fixtures import make_pdf
+from pdf_fixtures import make_empty_pdf, make_pdf
 
 CLI_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "extract_images.py"
@@ -47,10 +45,7 @@ def test_cli_extracts_images_to_custom_output_dir(tmp_path):
 
 def test_cli_reports_no_images_found(tmp_path):
     pdf_path = tmp_path / "empty.pdf"
-    doc = fitz.open()
-    doc.new_page()
-    doc.save(str(pdf_path))
-    doc.close()
+    make_empty_pdf(pdf_path)
 
     result = run_cli(["empty.pdf"], cwd=tmp_path)
 

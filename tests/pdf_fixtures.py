@@ -25,3 +25,11 @@ def make_pdf(path, images_per_page):
             page.insert_image(rect, stream=PNG_BYTES)
     doc.save(str(path))
     doc.close()
+
+
+def make_empty_pdf(path):
+    """Create a single-page PDF at `path` with no embedded images."""
+    doc = fitz.open()
+    doc.new_page()
+    doc.save(str(path))
+    doc.close()
