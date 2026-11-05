@@ -3,7 +3,16 @@
 import argparse
 import os
 import sys
+from collections import namedtuple
 
+from converter import (
+    LAYOUT_FIXED,
+    LAYOUT_FLOW,
+    LAYOUTS,
+    PdfEncryptedError,
+    convert_to_word,
+    has_editable_text,
+)
 from extractor import extract_images
 
 
@@ -12,10 +21,19 @@ def default_output_dir(pdf_path):
     return f"{base_name}_images"
 
 
+def default_word_path(pdf_path):
+    base_name = os.path.splitext(os.path.basename(pdf_path))[0]
+    return f"{base_name}.docx"
+
+
+def fail(message):
+    print(f"错误：{message}", file=sys.stderr)
+    sys.exit(1)
+
+
 def run_extract(pdf_path, output_dir=None):
     if not os.path.isfile(pdf_path):
-        print(f"错误：输入文件不存在: {pdf_path}", file=sys.stderr)
-        sys.exit(1)
+        fail(f"输入文件不存在: {pdf_path}")
 
     if not output_dir:
         output_dir = default_output_dir(pdf_path)
@@ -23,8 +41,7 @@ def run_extract(pdf_path, output_dir=None):
     try:
         saved_paths = extract_images(pdf_path, output_dir)
     except Exception as e:
-        print(f"错误：无法处理PDF文件: {e}", file=sys.stderr)
-        sys.exit(1)
+        fail(f"无法处理PDF文件: {e}")
 
     if not saved_paths:
         print("未找到图片")
@@ -32,62 +49,159 @@ def run_extract(pdf_path, output_dir=None):
         print(f"提取到 {len(saved_paths)} 张图片，已保存到: {output_dir}")
 
 
+def run_to_word(pdf_path, output_path=None, force=False, layout=LAYOUT_FLOW):
+    if not os.path.isfile(pdf_path):
+        fail(f"输入文件不存在: {pdf_path}")
+
+    if not output_path:
+        output_path = default_word_path(pdf_path)
+
+    if not output_path.lower().endswith(".docx"):
+        fail(f"输出文件必须以 .docx 结尾: {output_path}")
+    if os.path.exists(output_path) and not force:
+        fail(f"输出文件已存在: {output_path}（可加 --force 覆盖）")
+
+    print("正在转换…", flush=True)
+    try:
+        convert_to_word(pdf_path, output_path, layout)
+        has_text = has_editable_text(pdf_path)
+    except PdfEncryptedError:
+        fail(f"PDF 已加密，需要密码: {pdf_path}")
+    except Exception as e:
+        fail(f"无法处理PDF文件: {e}")
+
+    if not has_text:
+        print(
+            "警告：未检测到可编辑文字，可能是扫描件，内容将以图片形式保留",
+            file=sys.stderr,
+        )
+    print(f"已转换为 Word，已保存到: {output_path}")
+
+
+def ask_no_options():
+    return {}
+
+
+def ask_word_options():
+    choice = input("版式（1. 流式，适合长文档；2. 固定，适合证明和表单）[1]: ").strip() or "1"
+    if choice not in ("1", "2"):
+        fail(f"无效的版式编号: {choice}")
+    return {"layout": LAYOUT_FLOW if choice == "1" else LAYOUT_FIXED}
+
+
+Feature = namedtuple("Feature", "name run default_output output_prompt ask_options")
+
 FEATURES = [
-    ("提取图片", run_extract),
+    Feature(
+        "提取图片",
+        run_extract,
+        default_output_dir,
+        "输出目录（回车使用默认 {default}/）: ",
+        ask_no_options,
+    ),
+    Feature(
+        "转 Word",
+        run_to_word,
+        default_word_path,
+        "输出文件（回车使用默认 {default}）: ",
+        ask_word_options,
+    ),
 ]
+
+SUBCOMMANDS = ("extract-images", "to-word")
 
 
 def run_menu():
     print("支持的功能：")
-    for i, (name, _) in enumerate(FEATURES, start=1):
-        print(f"  {i}. {name}")
+    for i, feature in enumerate(FEATURES, start=1):
+        print(f"  {i}. {feature.name}")
 
     try:
         choice = input("请选择功能 [1]: ").strip() or "1"
         if not choice.isdigit() or not (1 <= int(choice) <= len(FEATURES)):
-            print(f"错误：无效的功能编号: {choice}", file=sys.stderr)
-            sys.exit(1)
+            fail(f"无效的功能编号: {choice}")
+        feature = FEATURES[int(choice) - 1]
 
         pdf_path = input("请输入 PDF 路径: ").strip()
         if not pdf_path:
-            print("错误：未输入 PDF 路径", file=sys.stderr)
-            sys.exit(1)
+            fail("未输入 PDF 路径")
         if not os.path.isfile(pdf_path):
-            print(f"错误：输入文件不存在: {pdf_path}", file=sys.stderr)
-            sys.exit(1)
+            fail(f"输入文件不存在: {pdf_path}")
 
-        default_dir = default_output_dir(pdf_path)
-        output_dir = input(f"输出目录（回车使用默认 {default_dir}/）: ").strip()
+        prompt = feature.output_prompt.format(default=feature.default_output(pdf_path))
+        output = input(prompt).strip()
+        options = feature.ask_options()
     except EOFError:
-        print("错误：输入中断", file=sys.stderr)
-        sys.exit(1)
+        fail("输入中断")
 
-    _, feature_func = FEATURES[int(choice) - 1]
-    feature_func(pdf_path, output_dir or None)
+    feature.run(pdf_path, output or None, **options)
+
+
+def add_help_option(parser):
+    parser.add_argument("-h", "--help", action="help", help="显示本帮助信息并退出")
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="pdf",
+        description=(
+            "pdf-tools —— PDF 工具集。从 PDF 文件中提取内嵌图片，或将 PDF 转换为 Word 文档。\n"
+            "不带任何参数运行 `python pdf` 可进入交互式菜单。"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
+    )
+    add_help_option(parser)
+    subparsers = parser.add_subparsers(
+        title="子命令", dest="command", metavar="<子命令>", required=True
+    )
+
+    extract = subparsers.add_parser(
+        "extract-images", help="提取 PDF 中的内嵌图片", add_help=False
+    )
+    add_help_option(extract)
+    extract.add_argument("input", help="待提取图片的 PDF 文件路径")
+    extract.add_argument(
+        "-o", "--output", help="图片输出目录（默认 <pdf文件名>_images/）"
+    )
+
+    to_word = subparsers.add_parser(
+        "to-word", help="将 PDF 转换为 Word 文档（.docx）", add_help=False
+    )
+    add_help_option(to_word)
+    to_word.add_argument("input", help="待转换的 PDF 文件路径")
+    to_word.add_argument(
+        "-o", "--output", help="输出文件路径，必须以 .docx 结尾（默认 <pdf文件名>.docx）"
+    )
+    to_word.add_argument(
+        "--force", action="store_true", help="覆盖已存在的输出文件"
+    )
+    to_word.add_argument(
+        "--layout",
+        choices=LAYOUTS,
+        default=LAYOUT_FLOW,
+        help=(
+            "版式：flow 推断段落和表格，文字可自动换行，适合长文档（默认）；"
+            "fixed 按原位置摆放每一行，版式稳定，适合证明和表单"
+        ),
+    )
+    return parser
 
 
 def main():
-    if len(sys.argv) > 1:
-        parser = argparse.ArgumentParser(
-            prog="pdf",
-            description=(
-                "pdf-tools —— PDF 工具集。从 PDF 文件中提取内嵌图片。\n"
-                "不带任何参数运行 `python pdf` 可进入交互式菜单。"
-            ),
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            add_help=False,
-        )
-        parser.add_argument(
-            "-h", "--help", action="help", help="显示本帮助信息并退出"
-        )
-        parser.add_argument("input", help="待提取图片的 PDF 文件路径")
-        parser.add_argument(
-            "-o", "--output", help="图片输出目录（默认 <pdf文件名>_images/）"
-        )
-        args = parser.parse_args()
+    if len(sys.argv) == 1:
+        run_menu()
+        return
+
+    first_arg = sys.argv[1]
+    if not first_arg.startswith("-") and first_arg not in SUBCOMMANDS:
+        fail(f"未知的子命令: {first_arg}（可用：{'、'.join(SUBCOMMANDS)}）")
+
+    args = build_parser().parse_args()
+    if args.command == "extract-images":
         run_extract(args.input, args.output)
     else:
-        run_menu()
+        run_to_word(args.input, args.output, args.force, args.layout)
 
 
 if __name__ == "__main__":

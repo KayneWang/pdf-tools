@@ -1,2 +1,4 @@
-pymupdf
+pymupdf>=1.26.7,<2
+pdf2docx==0.5.13
+python-docx
 pytest
